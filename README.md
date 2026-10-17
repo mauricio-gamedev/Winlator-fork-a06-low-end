@@ -4,7 +4,9 @@ Fork experimental do Winlator para celulares Android modestos, começando pelo G
 
 ## Status
 
-A build atual é um APK debug para testes no aparelho. Ela já inclui:
+A build atual é um APK debug para testes no aparelho. A primeira release experimental com os packs está disponível em [v0.2.0-a06-packs](https://github.com/mauricio-gamedev/Winlator-fork-a06-low-end/releases/tag/v0.2.0-a06-packs).
+
+Ela já inclui:
 
 - resolução padrão de 960x544 e cache de shaders limitado a 256 MB;
 - preparação automática do ambiente A06 com Vortek, Gladio, Box64, DXVK, D8VK e VKD3D;
@@ -16,7 +18,7 @@ A compatibilidade ainda está sendo medida com jogos e programas reais. O pack r
 
 ## Como testar
 
-1. Baixe o APK debug na aba [Actions](https://github.com/mauricio-gamedev/Winlator-fork-a06-low-end/actions).
+1. Baixe o APK em [Releases](https://github.com/mauricio-gamedev/Winlator-fork-a06-low-end/releases).
 2. Crie ou abra um container e entre em **Packs de compatibilidade A06**.
 3. Use o pack **VN / 2D** para visual novels, point-and-click e jogos 2D antigos.
 4. Use o pack **3D leve** para jogos 3D que usam DXVK.
@@ -24,7 +26,7 @@ A compatibilidade ainda está sendo medida com jogos e programas reais. O pack r
 
 ## Build sem PC
 
-O workflow [Build debug APK](https://github.com/mauricio-gamedev/Winlator-fork-a06-low-end/actions/workflows/build-debug.yml) baixa a base upstream, instala Java/Android SDK/CMake/NDK, aplica o patch A06 e publica o APK como artefato.
+O workflow [Build debug APK](https://github.com/mauricio-gamedev/Winlator-fork-a06-low-end/actions/workflows/build-debug.yml) baixa a base upstream, instala Java/Android SDK/CMake/NDK, aplica o patch A06 e publica o APK como artefato. A release é publicada pelo workflow específico depois de uma compilação limpa.
 
 ## Base e créditos
 
