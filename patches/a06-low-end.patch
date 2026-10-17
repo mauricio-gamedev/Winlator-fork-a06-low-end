@@ -214,6 +214,18 @@ index 1708187..0333053 100644
              container.saveData();
              maxContainerId++;
              containers.add(container);
+diff --git a/app/src/main/java/com/winlator/contentdialog/AboutDialog.java b/app/src/main/java/com/winlator/contentdialog/AboutDialog.java
+index 84f2567..069e55f 100644
+--- a/app/src/main/java/com/winlator/contentdialog/AboutDialog.java
++++ b/app/src/main/java/com/winlator/contentdialog/AboutDialog.java
+@@ -25,6 +25,7 @@ public class AboutDialog extends ContentDialog {
+             ((TextView)findViewById(R.id.TVAppVersion)).setText(context.getString(R.string.version)+" "+pInfo.versionName);
+ 
+             String creditsAndThirdPartyAppsHTML = String.join("<br />",
++                context.getString(R.string.a06_copyright),
+                 "GLIBC Patches by (<a href=\"https://github.com/termux-pacman/glibc-packages\">Termux Pacman</a>)",
+                 "Wine (<a href=\"https://www.winehq.org\">winehq.org</a>)",
+                 "Box86/Box64 by <a href=\"https://github.com/ptitSeb\">ptitseb</a>",
 diff --git a/app/src/main/java/com/winlator/core/A06CompatibilityPackManager.java b/app/src/main/java/com/winlator/core/A06CompatibilityPackManager.java
 new file mode 100644
 index 0000000..f4030fd
@@ -485,14 +497,15 @@ index bd67ab5..95a21b0 100644
                  android:id="@+id/TabLayout"
                  android:layout_width="match_parent"
 diff --git a/app/src/main/res/values-pt/strings.xml b/app/src/main/res/values-pt/strings.xml
-index e2d342c..9182876 100644
+index e2d342c..be94b66 100644
 --- a/app/src/main/res/values-pt/strings.xml
 +++ b/app/src/main/res/values-pt/strings.xml
-@@ -12,6 +12,15 @@
+@@ -12,6 +12,16 @@
      <string name="new_container">Novo Container</string>
      <string name="edit_container">Editar Container</string>
      <string name="creating_container">Criando Container...</string>
 +    <string name="preparing_a06_environment">Preparando ambiente do A06...</string>
++    <string name="a06_copyright"><![CDATA[Fork A06 e otimizações para celulares fracos por <a href="https://github.com/mauricio-gamedev">Mauricio.dev</a> — Copyright © 2026 Mauricio.dev]]></string>
 +    <string name="a06_compatibility_packs">Packs de compatibilidade A06</string>
 +    <string name="a06_pack_vn_2d">Pack VN / 2D</string>
 +    <string name="a06_pack_vn_2d_description">Visual novels, point-and-click e jogos 2D antigos</string>
@@ -504,7 +517,7 @@ index e2d342c..9182876 100644
      <string name="removing_container">Removendo Container...</string>
      <string name="duplicating_container">Duplicando Container...</string>
      <string name="installing_system_files">Instalando Arquivos do Sistema...</string>
-@@ -299,4 +308,4 @@
+@@ -299,4 +309,4 @@
      <string name="enable_background_wakelock">Ativar wakelock quando o dispositivo está bloqueado</string>
      <string name="save_mem_on_run_from_steam">Economize memória ao executar a partir do Steam</string>
      <string name="present_mode">Modo de Apresentação</string>
@@ -512,14 +525,15 @@ index e2d342c..9182876 100644
 \ No newline at end of file
 +</resources>
 diff --git a/app/src/main/res/values/strings.xml b/app/src/main/res/values/strings.xml
-index e943712..3e4a1d8 100644
+index e943712..c0d1c1d 100644
 --- a/app/src/main/res/values/strings.xml
 +++ b/app/src/main/res/values/strings.xml
-@@ -12,6 +12,15 @@
+@@ -12,6 +12,16 @@
      <string name="new_container">New Container</string>
      <string name="edit_container">Edit Container</string>
      <string name="creating_container">Creating Container...</string>
 +    <string name="preparing_a06_environment">Preparing A06 environment...</string>
++    <string name="a06_copyright"><![CDATA[A06 fork and low-end optimizations by <a href="https://github.com/mauricio-gamedev">Mauricio.dev</a> — Copyright © 2026 Mauricio.dev]]></string>
 +    <string name="a06_compatibility_packs">A06 Compatibility Packs</string>
 +    <string name="a06_pack_vn_2d">VN / 2D pack</string>
 +    <string name="a06_pack_vn_2d_description">Visual novels, point-and-click and older 2D games</string>
@@ -531,7 +545,7 @@ index e943712..3e4a1d8 100644
      <string name="removing_container">Removing Container...</string>
      <string name="duplicating_container">Duplicating Container...</string>
      <string name="installing_system_files">Installing System Files...</string>
-@@ -358,4 +367,4 @@
+@@ -358,4 +368,4 @@
      <string name="fgs_notification_content_else">Winlator is running in the background</string>
      <string name="save_mem_on_run_from_steam">Save memory on run from Steam</string>
      <string name="present_mode">Present Mode</string>
