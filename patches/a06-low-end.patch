@@ -1,8 +1,117 @@
+diff --git a/.github/workflows/build-debug.yml b/.github/workflows/build-debug.yml
+new file mode 100644
+index 0000000..04405da
+--- /dev/null
++++ b/.github/workflows/build-debug.yml
+@@ -0,0 +1,38 @@
++name: Build debug APK
++
++on:
++  workflow_dispatch:
++  push:
++    branches:
++      - a06-low-end-fork
++
++jobs:
++  assemble:
++    runs-on: ubuntu-latest
++
++    steps:
++      - name: Checkout
++        uses: actions/checkout@v4
++
++      - name: Set up Java
++        uses: actions/setup-java@v4
++        with:
++          distribution: temurin
++          java-version: '17'
++
++      - name: Set up Android SDK
++        uses: android-actions/setup-android@v3
++
++      - name: Install Android build tools
++        uses: android-actions/sdkmanager@v2
++        with:
++          packages: 'platforms;android-35 build-tools;35.0.0 cmake;3.22.1 ndk;24.0.8215888'
++
++      - name: Assemble debug APK
++        run: bash gradlew assembleDebug --stacktrace
++
++      - name: Upload debug APK
++        uses: actions/upload-artifact@v4
++        with:
++          name: winlator-a06-debug
++          path: app/build/outputs/apk/debug/*.apk
+diff --git a/PROJECT.md b/PROJECT.md
+new file mode 100644
+index 0000000..8ae6faa
+--- /dev/null
++++ b/PROJECT.md
+@@ -0,0 +1,40 @@
++# Projeto: fork leve do Winlator
++
++## Objetivo
++
++Criar uma fork do Winlator voltada a celulares Android modestos. O primeiro aparelho de referência é o Galaxy A06 4G, com Helio G85 e 4 GB de RAM.
++
++O app deve priorizar programas comuns de Windows e diferentes tipos de jogos: point-and-click, visual novels, jogos 2D/pixel art e alguns jogos 3D. A meta inicial é facilitar a configuração e reduzir o uso desnecessário de recursos, preservando os ajustes avançados e a compatibilidade oferecida pela base.
++
++## Direção técnica
++
++- Partir do código existente do Winlator e manter o motor e os componentes upstream enquanto avaliamos mudanças.
++- Trabalhar primeiro em configurações padrão, perfis por aplicativo e clareza da interface.
++- Organizar recomendações por tipo de uso: programas, aventuras/VNs, jogos 2D e jogos 3D.
++- Medir cada ajuste no A06 antes de tratá-lo como melhoria de desempenho.
++- Manter opções para equilibrar compatibilidade, estabilidade e velocidade; o perfil ideal pode variar entre programas e jogos.
++- Permitir que cada atalho mantenha suas próprias configurações para que ajustes de um jogo não mudem os outros.
++- Planejar a compilação e distribuição de APKs sem depender de um computador pessoal.
++- Usar o workflow `Build debug APK` no GitHub Actions para gerar um APK de teste remotamente.
++
++## Primeira etapa
++
++1. Entender o fluxo atual de criação de containers, atalhos e presets.
++2. Preparar opções iniciais para programas, aventuras/VNs, jogos 2D e jogos 3D, sem afirmar que uma configuração serve para todos.
++3. Identificar configurações padrão que fazem sentido para um aparelho com recursos limitados.
++4. Implementar uma primeira opção de configuração simples, sem remover os controles avançados existentes.
++5. Preparar um fluxo de build remoto e instalar o APK no A06 para avaliar cada categoria.
++
++## Build sem PC
++
++O workflow em `.github/workflows/build-debug.yml` instala Java, Android SDK, CMake e NDK e publica o APK debug como artefato. Depois de colocar a fork em um repositório GitHub, basta abrir a aba Actions, escolher `Build debug APK` e iniciar o workflow manualmente.
++
++## Limites da primeira versão
++
++- Não prometer que todo programa ou jogo Windows vai funcionar; compatibilidade depende do software, das dependências e do caminho gráfico utilizado.
++- Não assumir que um único preset será o mais rápido e estável para todos os casos.
++- Não substituir componentes centrais de emulação ou gráficos sem testes no aparelho-alvo.
++
++## Base de código
++
++O código-fonte foi obtido do repositório público `brunodev85/winlator-app`. O remoto local se chama `upstream`; o trabalho da fork está na branch `a06-low-end-fork`.
 diff --git a/app/src/main/java/com/winlator/ContainerDetailFragment.java b/app/src/main/java/com/winlator/ContainerDetailFragment.java
-index 8b8cd46..6192d46 100644
+index 8b8cd46..fd53b7a 100644
 --- a/app/src/main/java/com/winlator/ContainerDetailFragment.java
 +++ b/app/src/main/java/com/winlator/ContainerDetailFragment.java
-@@ -252,7 +252,7 @@ public class ContainerDetailFragment extends Fragment {
+@@ -40,6 +40,7 @@ import com.winlator.contentdialog.AddEnvVarDialog;
+ import com.winlator.contentdialog.AudioDriverConfigDialog;
+ import com.winlator.contentdialog.ContentDialog;
+ import com.winlator.contentdialog.VortekConfigDialog;
++import com.winlator.core.A06CompatibilityPackManager;
+ import com.winlator.core.AppUtils;
+ import com.winlator.core.Callback;
+ import com.winlator.container.DXWrapperPicker;
+@@ -156,6 +157,10 @@ public class ContainerDetailFragment extends Fragment {
+         final Spinner sHUDMode = view.findViewById(R.id.SHUDMode);
+         sHUDMode.setSelection(isEditMode() ? container.getHUDMode() : FrameRating.Mode.DISABLED.ordinal());
+ 
++        View compatibilityPacksButton = view.findViewById(R.id.BTA06CompatibilityPacks);
++        compatibilityPacksButton.setVisibility(isEditMode() ? View.VISIBLE : View.GONE);
++        if (isEditMode()) compatibilityPacksButton.setOnClickListener((v) -> showCompatibilityPacks(context));
++
+         final Spinner sStartupSelection = view.findViewById(R.id.SStartupSelection);
+         byte oldStartupSelection = isEditMode() ? container.getStartupSelection() : -1;
+         sStartupSelection.setSelection(oldStartupSelection != -1 ? oldStartupSelection : Container.STARTUP_SELECTION_ESSENTIAL);
+@@ -252,7 +257,7 @@ public class ContainerDetailFragment extends Fragment {
                          data.put("wineVersion", wineInfos.get(sWineVersion.getSelectedItemPosition()).identifier());
                      }
  
@@ -11,6 +120,37 @@ index 8b8cd46..6192d46 100644
                      manager.createContainerAsync(data, (container) -> {
                          if (container != null) {
                              this.container = container;
+@@ -268,6 +273,30 @@ public class ContainerDetailFragment extends Fragment {
+         return view;
+     }
+ 
++    private void showCompatibilityPacks(Context context) {
++        ArrayList<A06CompatibilityPackManager.Pack> packs = A06CompatibilityPackManager.getPacks();
++        String[] items = new String[packs.size()];
++        for (int i = 0; i < packs.size(); i++) {
++            A06CompatibilityPackManager.Pack pack = packs.get(i);
++            String status = A06CompatibilityPackManager.isInstalled(container, pack.id)
++                    ? " — "+context.getString(R.string.a06_pack_installed) : "";
++            items[i] = pack.getName(context)+" — "+pack.getDescription(context)+status;
++        }
++
++        ContentDialog.showSelectionList(context, R.string.a06_compatibility_packs, items, false, (positions) -> {
++            if (positions.isEmpty()) return;
++            A06CompatibilityPackManager.Pack selectedPack = packs.get(positions.get(0));
++            preloaderDialog.show(R.string.installing_a06_pack);
++            java.util.concurrent.Executors.newSingleThreadExecutor().execute(() -> {
++                boolean success = A06CompatibilityPackManager.install(context, container, selectedPack.id);
++                getActivity().runOnUiThread(() -> {
++                    preloaderDialog.close();
++                    AppUtils.showToast(context, success ? R.string.a06_pack_installed : R.string.unable_to_install_a06_pack);
++                });
++            });
++        });
++    }
++
+     private void saveWineRegistryKeys(View view) {
+         File userRegFile = new File(container.getRootDir(), ".wine/user.reg");
+         try (WineRegistryEditor registryEditor = new WineRegistryEditor(userRegFile)) {
 diff --git a/app/src/main/java/com/winlator/XServerDisplayActivity.java b/app/src/main/java/com/winlator/XServerDisplayActivity.java
 index 667f1b3..ab985b1 100644
 --- a/app/src/main/java/com/winlator/XServerDisplayActivity.java
@@ -74,12 +214,134 @@ index 1708187..0333053 100644
              container.saveData();
              maxContainerId++;
              containers.add(container);
+diff --git a/app/src/main/java/com/winlator/core/A06CompatibilityPackManager.java b/app/src/main/java/com/winlator/core/A06CompatibilityPackManager.java
+new file mode 100644
+index 0000000..f4030fd
+--- /dev/null
++++ b/app/src/main/java/com/winlator/core/A06CompatibilityPackManager.java
+@@ -0,0 +1,116 @@
++package com.winlator.core;
++
++import android.content.Context;
++
++import com.winlator.R;
++import com.winlator.box64.Box64Preset;
++import com.winlator.container.Container;
++import com.winlator.container.DXWrappers;
++
++import java.util.ArrayList;
++
++/**
++ * Applies small, offline compatibility profiles to an individual container.
++ * Packs only use components already shipped with the A06 build.
++ */
++public abstract class A06CompatibilityPackManager {
++    public static final String VERSION = "1";
++    public static final String PACK_VN_2D = "vn_2d";
++    public static final String PACK_LIGHT_3D = "light_3d";
++
++    public static final class Pack {
++        public final String id;
++        private final int nameResId;
++        private final int descriptionResId;
++
++        private Pack(String id, int nameResId, int descriptionResId) {
++            this.id = id;
++            this.nameResId = nameResId;
++            this.descriptionResId = descriptionResId;
++        }
++
++        public String getName(Context context) {
++            return context.getString(nameResId);
++        }
++
++        public String getDescription(Context context) {
++            return context.getString(descriptionResId);
++        }
++    }
++
++    private static final Pack[] PACKS = {
++            new Pack(PACK_VN_2D, R.string.a06_pack_vn_2d, R.string.a06_pack_vn_2d_description),
++            new Pack(PACK_LIGHT_3D, R.string.a06_pack_light_3d, R.string.a06_pack_light_3d_description)
++    };
++
++    public static ArrayList<Pack> getPacks() {
++        ArrayList<Pack> result = new ArrayList<>();
++        for (Pack pack : PACKS) result.add(pack);
++        return result;
++    }
++
++    public static boolean isInstalled(Container container, String packId) {
++        return VERSION.equals(container.getExtra(getMarkerName(packId)));
++    }
++
++    public static boolean install(Context context, Container container, String packId) {
++        if (container == null || !isKnownPack(packId)) return false;
++        if (isInstalled(container, packId)) return true;
++        if (!A06Preinstall.prepareContainer(context, container)) return false;
++
++        String oldWinComponents = container.getWinComponents();
++        String oldEnvVars = container.getEnvVars();
++        String oldDXWrapper = container.getDXWrapper();
++        String oldBox64Preset = container.getBox64Preset();
++
++        applySettings(container, packId);
++        boolean success = A06Preinstall.prepareSelectedWinComponents(context, container);
++        if (!success) {
++            container.setWinComponents(oldWinComponents);
++            container.setEnvVars(oldEnvVars);
++            container.setDXWrapper(oldDXWrapper);
++            container.setBox64Preset(oldBox64Preset);
++            return false;
++        }
++
++        container.putExtra(getMarkerName(packId), VERSION);
++        container.saveData();
++        return true;
++    }
++
++    private static void applySettings(Container container, String packId) {
++        KeyValueSet winComponents = new KeyValueSet(container.getWinComponents());
++        EnvVars envVars = new EnvVars(container.getEnvVars());
++
++        winComponents.put("direct3d", 1)
++                .put("directsound", 1)
++                .put("directmusic", 1)
++                .put("xaudio", 1)
++                .put("vcrun2010", 1)
++                .put("wmdecoder", 1);
++
++        if (PACK_VN_2D.equals(packId)) {
++            winComponents.put("directshow", 1).put("vcrun2005", 1);
++            container.setBox64Preset(Box64Preset.CONSERVATIVE);
++        }
++        else if (PACK_LIGHT_3D.equals(packId)) {
++            container.setDXWrapper(DXWrappers.DXVK);
++            container.setBox64Preset(Box64Preset.PERFORMANCE);
++            envVars.put("MESA_SHADER_CACHE_DISABLE", "false")
++                    .put("MESA_SHADER_CACHE_MAX_SIZE", "256MB")
++                    .put("mesa_glthread", "true")
++                    .put("WINEESYNC", "1");
++        }
++
++        container.setWinComponents(winComponents.toString());
++        container.setEnvVars(envVars.toString());
++    }
++
++    private static boolean isKnownPack(String packId) {
++        return PACK_VN_2D.equals(packId) || PACK_LIGHT_3D.equals(packId);
++    }
++
++    private static String getMarkerName(String packId) {
++        return "a06_pack_"+packId;
++    }
++}
 diff --git a/app/src/main/java/com/winlator/core/A06Preinstall.java b/app/src/main/java/com/winlator/core/A06Preinstall.java
 new file mode 100644
-index 0000000..186de3b
+index 0000000..45d6714
 --- /dev/null
 +++ b/app/src/main/java/com/winlator/core/A06Preinstall.java
-@@ -0,0 +1,87 @@
+@@ -0,0 +1,95 @@
 +package com.winlator.core;
 +
 +import android.content.Context;
@@ -132,16 +394,26 @@ index 0000000..186de3b
 +
 +    public static synchronized boolean prepareContainer(Context context, Container container) {
 +        File marker = new File(container.getRootDir(), CONTAINER_MARKER);
-+        if (isPrepared(marker)) return true;
++        boolean success = true;
++        if (!isPrepared(marker)) {
++            File windowsDir = new File(container.getRootDir(), ".wine/drive_c/windows");
++            windowsDir.mkdirs();
 +
++            for (String asset : CONTAINER_ASSETS) {
++                success &= TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, context, asset, windowsDir);
++            }
++
++            success &= prepareSelectedWinComponents(context, container);
++            if (success) writeMarker(marker);
++        }
++        return success;
++    }
++
++    /** Extracts the currently selected WinComponents after a profile changes them. */
++    public static synchronized boolean prepareSelectedWinComponents(Context context, Container container) {
 +        File windowsDir = new File(container.getRootDir(), ".wine/drive_c/windows");
 +        windowsDir.mkdirs();
-+
 +        boolean success = true;
-+        for (String asset : CONTAINER_ASSETS) {
-+            success &= TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, context, asset, windowsDir);
-+        }
-+
 +        for (String[] component : new KeyValueSet(container.getWinComponents())) {
 +            if (component.length == 2 && component[1].equals("1")) {
 +                success &= TarCompressorUtils.extract(
@@ -152,8 +424,6 @@ index 0000000..186de3b
 +                );
 +            }
 +        }
-+
-+        if (success) writeMarker(marker);
 +        return success;
 +    }
 +
@@ -195,19 +465,46 @@ index 08fbf80..bc391b0 100644
      }
  
      private static void clearOptDir(File optDir) {
+diff --git a/app/src/main/res/layout/container_detail_fragment.xml b/app/src/main/res/layout/container_detail_fragment.xml
+index bd67ab5..95a21b0 100644
+--- a/app/src/main/res/layout/container_detail_fragment.xml
++++ b/app/src/main/res/layout/container_detail_fragment.xml
+@@ -188,6 +188,14 @@
+                 android:layout_width="match_parent"
+                 android:entries="@array/hud_mode_entries" />
+ 
++            <Button
++                style="@style/ButtonNeutral"
++                android:id="@+id/BTA06CompatibilityPacks"
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content"
++                android:layout_marginTop="8dp"
++                android:text="@string/a06_compatibility_packs" />
++
+             <com.google.android.material.tabs.TabLayout
+                 android:id="@+id/TabLayout"
+                 android:layout_width="match_parent"
 diff --git a/app/src/main/res/values-pt/strings.xml b/app/src/main/res/values-pt/strings.xml
-index e2d342c..3a3b577 100644
+index e2d342c..9182876 100644
 --- a/app/src/main/res/values-pt/strings.xml
 +++ b/app/src/main/res/values-pt/strings.xml
-@@ -12,6 +12,7 @@
+@@ -12,6 +12,15 @@
      <string name="new_container">Novo Container</string>
      <string name="edit_container">Editar Container</string>
      <string name="creating_container">Criando Container...</string>
 +    <string name="preparing_a06_environment">Preparando ambiente do A06...</string>
++    <string name="a06_compatibility_packs">Packs de compatibilidade A06</string>
++    <string name="a06_pack_vn_2d">Pack VN / 2D</string>
++    <string name="a06_pack_vn_2d_description">Visual novels, point-and-click e jogos 2D antigos</string>
++    <string name="a06_pack_light_3d">Pack 3D leve</string>
++    <string name="a06_pack_light_3d_description">DXVK e ajustes para jogos 3D mais leves</string>
++    <string name="a06_pack_installed">instalado</string>
++    <string name="installing_a06_pack">Instalando pack de compatibilidade...</string>
++    <string name="unable_to_install_a06_pack">Não foi possível instalar o pack de compatibilidade</string>
      <string name="removing_container">Removendo Container...</string>
      <string name="duplicating_container">Duplicando Container...</string>
      <string name="installing_system_files">Instalando Arquivos do Sistema...</string>
-@@ -299,4 +300,4 @@
+@@ -299,4 +308,4 @@
      <string name="enable_background_wakelock">Ativar wakelock quando o dispositivo está bloqueado</string>
      <string name="save_mem_on_run_from_steam">Economize memória ao executar a partir do Steam</string>
      <string name="present_mode">Modo de Apresentação</string>
@@ -215,18 +512,26 @@ index e2d342c..3a3b577 100644
 \ No newline at end of file
 +</resources>
 diff --git a/app/src/main/res/values/strings.xml b/app/src/main/res/values/strings.xml
-index e943712..ead1786 100644
+index e943712..3e4a1d8 100644
 --- a/app/src/main/res/values/strings.xml
 +++ b/app/src/main/res/values/strings.xml
-@@ -12,6 +12,7 @@
+@@ -12,6 +12,15 @@
      <string name="new_container">New Container</string>
      <string name="edit_container">Edit Container</string>
      <string name="creating_container">Creating Container...</string>
 +    <string name="preparing_a06_environment">Preparing A06 environment...</string>
++    <string name="a06_compatibility_packs">A06 Compatibility Packs</string>
++    <string name="a06_pack_vn_2d">VN / 2D pack</string>
++    <string name="a06_pack_vn_2d_description">Visual novels, point-and-click and older 2D games</string>
++    <string name="a06_pack_light_3d">Light 3D pack</string>
++    <string name="a06_pack_light_3d_description">DXVK and low-end tuning for lighter 3D games</string>
++    <string name="a06_pack_installed">installed</string>
++    <string name="installing_a06_pack">Installing compatibility pack...</string>
++    <string name="unable_to_install_a06_pack">Unable to install compatibility pack</string>
      <string name="removing_container">Removing Container...</string>
      <string name="duplicating_container">Duplicating Container...</string>
      <string name="installing_system_files">Installing System Files...</string>
-@@ -358,4 +359,4 @@
+@@ -358,4 +367,4 @@
      <string name="fgs_notification_content_else">Winlator is running in the background</string>
      <string name="save_mem_on_run_from_steam">Save memory on run from Steam</string>
      <string name="present_mode">Present Mode</string>
