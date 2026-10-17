@@ -76,7 +76,7 @@ index 1708187..0333053 100644
              containers.add(container);
 diff --git a/app/src/main/java/com/winlator/core/A06Preinstall.java b/app/src/main/java/com/winlator/core/A06Preinstall.java
 new file mode 100644
-index 0000000..25f8efd
+index 0000000..186de3b
 --- /dev/null
 +++ b/app/src/main/java/com/winlator/core/A06Preinstall.java
 @@ -0,0 +1,87 @@
@@ -142,7 +142,7 @@ index 0000000..25f8efd
 +            success &= TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, context, asset, windowsDir);
 +        }
 +
-+        for (String[] component : new KeyValueSet(Container.DEFAULT_WINCOMPONENTS)) {
++        for (String[] component : new KeyValueSet(container.getWinComponents())) {
 +            if (component.length == 2 && component[1].equals("1")) {
 +                success &= TarCompressorUtils.extract(
 +                        TarCompressorUtils.Type.ZSTD,
