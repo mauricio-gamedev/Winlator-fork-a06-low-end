@@ -1,0 +1,67 @@
+name: Release A06 compatibility packs
+
+on:
+  push:
+    branches:
+      - release/v0.2.0-a06-packs
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout fork
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+
+      - name: Install Android build tools
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0" "cmake;3.22.1" "ndk;24.0.8215888"
+
+      - name: Fetch Winlator source
+        run: git clone --depth 1 https://github.com/brunodev85/winlator-app.git source
+
+      - name: Apply A06 fork patch
+        run: git -C source apply "$GITHUB_WORKSPACE/patches/a06-low-end.patch"
+
+      - name: Build release APK
+        run: cd source && bash gradlew assembleDebug --stacktrace
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: winlator-a06-v0.2.0-packs
+          path: source/app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v0.2.0-a06-packs
+          name: Winlator Fork A06 Low End v0.2.0 — Compatibility Packs
+          prerelease: true
+          generate_release_notes: false
+          body: |
+            Primeira build debug da fork com packs de compatibilidade para o Galaxy A06 4G.
+
+            Incluído:
+            - Pack VN / 2D para visual novels, point-and-click e jogos 2D antigos.
+            - Pack 3D leve com DXVK e ajustes de baixo consumo.
+            - Preparação automática dos componentes A06.
+            - Interface em português do Brasil.
+
+            Esta é uma release experimental. Faça backup dos containers antes de instalar.
+          files: source/app/build/outputs/apk/debug/app-debug.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
