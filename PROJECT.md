@@ -2,6 +2,10 @@
 
 O objetivo é criar uma versão Android leve para executar programas Windows, visual novels, point-and-click, jogos 2D/pixel art e alguns jogos 3D leves no Galaxy A06 4G, com Helio G85 e 4 GB de RAM.
 
+## Release atual
+
+A primeira release experimental com packs de compatibilidade está disponível em [v0.2.0-a06-packs](https://github.com/mauricio-gamedev/Winlator-fork-a06-low-end/releases/tag/v0.2.0-a06-packs).
+
 ## O que já foi implementado
 
 - Padrão de 960x544 para reduzir carga de renderização.
