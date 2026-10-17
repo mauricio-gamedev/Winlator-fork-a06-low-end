@@ -1,3 +1,44 @@
+diff --git a/app/src/main/java/com/winlator/ContainerDetailFragment.java b/app/src/main/java/com/winlator/ContainerDetailFragment.java
+index 8b8cd46..6192d46 100644
+--- a/app/src/main/java/com/winlator/ContainerDetailFragment.java
++++ b/app/src/main/java/com/winlator/ContainerDetailFragment.java
+@@ -252,7 +252,7 @@ public class ContainerDetailFragment extends Fragment {
+                         data.put("wineVersion", wineInfos.get(sWineVersion.getSelectedItemPosition()).identifier());
+                     }
+ 
+-                    preloaderDialog.show(R.string.creating_container);
++                    preloaderDialog.show(R.string.preparing_a06_environment);
+                     manager.createContainerAsync(data, (container) -> {
+                         if (container != null) {
+                             this.container = container;
+diff --git a/app/src/main/java/com/winlator/XServerDisplayActivity.java b/app/src/main/java/com/winlator/XServerDisplayActivity.java
+index 667f1b3..ab985b1 100644
+--- a/app/src/main/java/com/winlator/XServerDisplayActivity.java
++++ b/app/src/main/java/com/winlator/XServerDisplayActivity.java
+@@ -45,6 +45,7 @@ import com.winlator.contentdialog.VKD3DConfigDialog;
+ import com.winlator.contentdialog.VirGLConfigDialog;
+ import com.winlator.contentdialog.WineD3DConfigDialog;
+ import com.winlator.core.AppUtils;
++import com.winlator.core.A06Preinstall;
+ import com.winlator.core.DefaultVersion;
+ import com.winlator.core.EnvVars;
+ import com.winlator.core.FileUtils;
+@@ -447,6 +448,8 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
+         String rfsVersion = String.valueOf(rootFS.getVersion());
+         boolean containerDataChanged = false;
+ 
++        if (!A06Preinstall.prepareContainer(this, container)) containerDataChanged = true;
++
+         boolean wineprefixWasUpdated = WineUtils.isWineprefixWasUpdated(container);
+         if (!container.getExtra("appVersion").equals(appVersion) || !container.getExtra("rfsVersion").equals(rfsVersion) || wineprefixWasUpdated) {
+             applyGeneralPatches(container);
+@@ -1139,4 +1142,4 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
+         }
+         else return false;
+     }
+-}
+\ No newline at end of file
++}
 diff --git a/app/src/main/java/com/winlator/container/Container.java b/app/src/main/java/com/winlator/container/Container.java
 index 2086786..b5f03bd 100644
 --- a/app/src/main/java/com/winlator/container/Container.java
@@ -13,3 +54,182 @@ index 2086786..b5f03bd 100644
      public static final String DEFAULT_AUDIO_DRIVER = AudioDrivers.ALSA;
      public static final String DEFAULT_DXWRAPPER = DXWrappers.DXVK;
      public static final String DEFAULT_WINCOMPONENTS = "direct3d=1,directsound=1,directmusic=1,directshow=0,directplay=0,xaudio=1,vcrun2005=0,vcrun2010=1,wmdecoder=1";
+diff --git a/app/src/main/java/com/winlator/container/ContainerManager.java b/app/src/main/java/com/winlator/container/ContainerManager.java
+index 1708187..0333053 100644
+--- a/app/src/main/java/com/winlator/container/ContainerManager.java
++++ b/app/src/main/java/com/winlator/container/ContainerManager.java
+@@ -4,6 +4,7 @@ import android.content.Context;
+ import android.os.Handler;
+ 
+ import com.winlator.R;
++import com.winlator.core.A06Preinstall;
+ import com.winlator.core.Callback;
+ import com.winlator.core.FileUtils;
+ import com.winlator.core.TarCompressorUtils;
+@@ -115,6 +116,7 @@ public class ContainerManager {
+                 return null;
+             }
+ 
++            A06Preinstall.prepareContainer(context, container);
+             container.saveData();
+             maxContainerId++;
+             containers.add(container);
+diff --git a/app/src/main/java/com/winlator/core/A06Preinstall.java b/app/src/main/java/com/winlator/core/A06Preinstall.java
+new file mode 100644
+index 0000000..25f8efd
+--- /dev/null
++++ b/app/src/main/java/com/winlator/core/A06Preinstall.java
+@@ -0,0 +1,87 @@
++package com.winlator.core;
++
++import android.content.Context;
++
++import com.winlator.container.Container;
++import com.winlator.xenvironment.RootFS;
++
++import java.io.File;
++import java.util.concurrent.Executors;
++
++/**
++ * Installs the small, offline A06 compatibility pack used by the default
++ * container profile. The normal Winlator setup remains responsible for
++ * registry overrides and user-selected component versions.
++ */
++public abstract class A06Preinstall {
++    public static final String VERSION = "1";
++    private static final String ROOTFS_MARKER = ".winlator/a06-preinstall";
++    private static final String CONTAINER_MARKER = ".a06-preinstall";
++
++    private static final String[] ROOTFS_ASSETS = {
++            "graphics_driver/vortek-"+DefaultVersion.VORTEK+".tzst",
++            "graphics_driver/gladio-"+DefaultVersion.GLADIO+".tzst"
++    };
++
++    private static final String[] CONTAINER_ASSETS = {
++            "dxwrapper/dxvk-"+DefaultVersion.MINOR_DXVK+".tzst",
++            "dxwrapper/d8vk-"+DefaultVersion.D8VK+".tzst",
++            "dxwrapper/vkd3d-"+DefaultVersion.VKD3D+".tzst"
++    };
++
++    public static void prepareRootFSAsync(Context context) {
++        Executors.newSingleThreadExecutor().execute(() -> prepareRootFS(context));
++    }
++
++    public static synchronized boolean prepareRootFS(Context context) {
++        RootFS rootFS = RootFS.find(context);
++        File marker = new File(rootFS.getRootDir(), ROOTFS_MARKER);
++        if (isPrepared(marker)) return true;
++
++        boolean success = true;
++        for (String asset : ROOTFS_ASSETS) {
++            success &= TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, context, asset, rootFS.getRootDir());
++        }
++        GeneralComponents.extractFile(GeneralComponents.Type.BOX64, context, DefaultVersion.BOX64, DefaultVersion.BOX64);
++
++        if (success) writeMarker(marker);
++        return success;
++    }
++
++    public static synchronized boolean prepareContainer(Context context, Container container) {
++        File marker = new File(container.getRootDir(), CONTAINER_MARKER);
++        if (isPrepared(marker)) return true;
++
++        File windowsDir = new File(container.getRootDir(), ".wine/drive_c/windows");
++        windowsDir.mkdirs();
++
++        boolean success = true;
++        for (String asset : CONTAINER_ASSETS) {
++            success &= TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, context, asset, windowsDir);
++        }
++
++        for (String[] component : new KeyValueSet(Container.DEFAULT_WINCOMPONENTS)) {
++            if (component.length == 2 && component[1].equals("1")) {
++                success &= TarCompressorUtils.extract(
++                        TarCompressorUtils.Type.ZSTD,
++                        context,
++                        "wincomponents/"+component[0]+".tzst",
++                        windowsDir
++                );
++            }
++        }
++
++        if (success) writeMarker(marker);
++        return success;
++    }
++
++    private static boolean isPrepared(File marker) {
++        return marker.isFile() && VERSION.equals(FileUtils.readString(marker));
++    }
++
++    private static void writeMarker(File marker) {
++        File parent = marker.getParentFile();
++        if (parent != null) parent.mkdirs();
++        FileUtils.writeString(marker, VERSION);
++    }
++}
+diff --git a/app/src/main/java/com/winlator/xenvironment/RootFSInstaller.java b/app/src/main/java/com/winlator/xenvironment/RootFSInstaller.java
+index 08fbf80..bc391b0 100644
+--- a/app/src/main/java/com/winlator/xenvironment/RootFSInstaller.java
++++ b/app/src/main/java/com/winlator/xenvironment/RootFSInstaller.java
+@@ -10,6 +10,7 @@ import com.winlator.SettingsFragment;
+ import com.winlator.container.Container;
+ import com.winlator.container.ContainerManager;
+ import com.winlator.core.AppUtils;
++import com.winlator.core.A06Preinstall;
+ import com.winlator.core.DownloadProgressDialog;
+ import com.winlator.core.FileUtils;
+ import com.winlator.core.PreloaderDialog;
+@@ -70,6 +71,7 @@ public abstract class RootFSInstaller {
+             if (success) {
+                 rootFS.createRFSVersionFile(LATEST_VERSION);
+                 resetContainerRFSVersions(activity);
++                A06Preinstall.prepareRootFS(activity);
+             }
+             else AppUtils.showToast(activity, R.string.unable_to_install_system_files);
+ 
+@@ -80,6 +82,7 @@ public abstract class RootFSInstaller {
+     public static void installIfNeeded(final MainActivity activity) {
+         RootFS rootFS = RootFS.find(activity);
+         if (!rootFS.isValid() || rootFS.getVersion() < LATEST_VERSION) install(activity);
++        else A06Preinstall.prepareRootFSAsync(activity);
+     }
+ 
+     private static void clearOptDir(File optDir) {
+diff --git a/app/src/main/res/values-pt/strings.xml b/app/src/main/res/values-pt/strings.xml
+index e2d342c..3a3b577 100644
+--- a/app/src/main/res/values-pt/strings.xml
++++ b/app/src/main/res/values-pt/strings.xml
+@@ -12,6 +12,7 @@
+     <string name="new_container">Novo Container</string>
+     <string name="edit_container">Editar Container</string>
+     <string name="creating_container">Criando Container...</string>
++    <string name="preparing_a06_environment">Preparando ambiente do A06...</string>
+     <string name="removing_container">Removendo Container...</string>
+     <string name="duplicating_container">Duplicando Container...</string>
+     <string name="installing_system_files">Instalando Arquivos do Sistema...</string>
+@@ -299,4 +300,4 @@
+     <string name="enable_background_wakelock">Ativar wakelock quando o dispositivo está bloqueado</string>
+     <string name="save_mem_on_run_from_steam">Economize memória ao executar a partir do Steam</string>
+     <string name="present_mode">Modo de Apresentação</string>
+-</resources>
+\ No newline at end of file
++</resources>
+diff --git a/app/src/main/res/values/strings.xml b/app/src/main/res/values/strings.xml
+index e943712..ead1786 100644
+--- a/app/src/main/res/values/strings.xml
++++ b/app/src/main/res/values/strings.xml
+@@ -12,6 +12,7 @@
+     <string name="new_container">New Container</string>
+     <string name="edit_container">Edit Container</string>
+     <string name="creating_container">Creating Container...</string>
++    <string name="preparing_a06_environment">Preparing A06 environment...</string>
+     <string name="removing_container">Removing Container...</string>
+     <string name="duplicating_container">Duplicating Container...</string>
+     <string name="installing_system_files">Installing System Files...</string>
+@@ -358,4 +359,4 @@
+     <string name="fgs_notification_content_else">Winlator is running in the background</string>
+     <string name="save_mem_on_run_from_steam">Save memory on run from Steam</string>
+     <string name="present_mode">Present Mode</string>
+-</resources>
+\ No newline at end of file
++</resources>
