@@ -33,6 +33,9 @@ jobs:
       - name: Fetch Winlator source
         run: git clone --depth 1 https://github.com/brunodev85/winlator-app.git source
 
+      - name: Apply A06 low-end defaults
+        run: git -C source apply "$GITHUB_WORKSPACE/patches/a06-low-end.patch"
+
       - name: Build debug APK
         run: cd source && bash gradlew assembleDebug --stacktrace
 
