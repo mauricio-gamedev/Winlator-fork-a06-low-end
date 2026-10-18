@@ -8,7 +8,7 @@ A release de teste atual é [v0.2.2-a06-pack-fix](https://github.com/mauricio-ga
 
 Na versão 2, instalar um pack atualiza as configurações do container e pede que a próxima inicialização reaplique os componentes pela sequência normal do Winlator. O fluxo do pack não extrai DLLs por conta própria e não troca o driver gráfico, o wrapper Direct3D ou as variáveis personalizadas do container.
 
-A compilação automatizada será publicada junto com a release. Ainda é necessário confirmar o resultado do cubo no Galaxy A06 4G. A release anterior, [v0.2.1-a06-driver-fix](https://github.com/mauricio-gamedev/Winlator-fork-a06-low-end/releases/tag/v0.2.1-a06-driver-fix), continua disponível.
+O APK foi compilado pelo GitHub Actions e já está publicado na release. Ainda é necessário confirmar o resultado do cubo no Galaxy A06 4G. A release anterior, [v0.2.1-a06-driver-fix](https://github.com/mauricio-gamedev/Winlator-fork-a06-low-end/releases/tag/v0.2.1-a06-driver-fix), continua disponível.
 
 ## O que a fork inclui
 
