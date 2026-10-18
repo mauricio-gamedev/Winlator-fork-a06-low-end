@@ -7,6 +7,9 @@ on:
       - main
       - a06-low-end-fork
 
+permissions:
+  contents: write
+
 jobs:
   assemble:
     runs-on: ubuntu-latest
@@ -44,3 +47,14 @@ jobs:
         with:
           name: winlator-a06-debug
           path: source/app/build/outputs/apk/debug/*.apk
+
+      - name: Publish A06 test release
+        if: ${{ github.event_name == 'push' && startsWith(github.event.head_commit.message, 'release: v0.2.1-a06-driver-fix') }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v0.2.1-a06-driver-fix
+          name: Winlator Fork A06 Low End v0.2.1 — Graphics initialization fix
+          body_path: RELEASE_NOTES_v0.2.1-a06-driver-fix.md
+          prerelease: true
+          make_latest: false
+          files: source/app/build/outputs/apk/debug/*.apk
