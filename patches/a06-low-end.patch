@@ -89,7 +89,7 @@ index 0000000..8ae6faa
 +
 +O código-fonte foi obtido do repositório público `brunodev85/winlator-app`. O remoto local se chama `upstream`; o trabalho da fork está na branch `a06-low-end-fork`.
 diff --git a/app/src/main/java/com/winlator/ContainerDetailFragment.java b/app/src/main/java/com/winlator/ContainerDetailFragment.java
-index 8b8cd46..fd53b7a 100644
+index 8b8cd46..baa15bd 100644
 --- a/app/src/main/java/com/winlator/ContainerDetailFragment.java
 +++ b/app/src/main/java/com/winlator/ContainerDetailFragment.java
 @@ -40,6 +40,7 @@ import com.winlator.contentdialog.AddEnvVarDialog;
@@ -120,7 +120,7 @@ index 8b8cd46..fd53b7a 100644
                      manager.createContainerAsync(data, (container) -> {
                          if (container != null) {
                              this.container = container;
-@@ -268,6 +273,30 @@ public class ContainerDetailFragment extends Fragment {
+@@ -268,6 +273,35 @@ public class ContainerDetailFragment extends Fragment {
          return view;
      }
  
@@ -129,8 +129,13 @@ index 8b8cd46..fd53b7a 100644
 +        String[] items = new String[packs.size()];
 +        for (int i = 0; i < packs.size(); i++) {
 +            A06CompatibilityPackManager.Pack pack = packs.get(i);
-+            String status = A06CompatibilityPackManager.isInstalled(container, pack.id)
-+                    ? " — "+context.getString(R.string.a06_pack_installed) : "";
++            String status = "";
++            if (A06CompatibilityPackManager.isInstalled(container, pack.id)) {
++                status = " — "+context.getString(R.string.a06_pack_installed);
++            }
++            else if (A06CompatibilityPackManager.needsUpdate(container, pack.id)) {
++                status = " — "+context.getString(R.string.a06_pack_update_available);
++            }
 +            items[i] = pack.getName(context)+" — "+pack.getDescription(context)+status;
 +        }
 +
@@ -139,7 +144,7 @@ index 8b8cd46..fd53b7a 100644
 +            A06CompatibilityPackManager.Pack selectedPack = packs.get(positions.get(0));
 +            preloaderDialog.show(R.string.installing_a06_pack);
 +            java.util.concurrent.Executors.newSingleThreadExecutor().execute(() -> {
-+                boolean success = A06CompatibilityPackManager.install(context, container, selectedPack.id);
++                boolean success = A06CompatibilityPackManager.install(container, selectedPack.id);
 +                getActivity().runOnUiThread(() -> {
 +                    preloaderDialog.close();
 +                    AppUtils.showToast(context, success ? R.string.a06_pack_installed : R.string.unable_to_install_a06_pack);
@@ -240,27 +245,26 @@ index 84f2567..069e55f 100644
                  "Box86/Box64 by <a href=\"https://github.com/ptitSeb\">ptitseb</a>",
 diff --git a/app/src/main/java/com/winlator/core/A06CompatibilityPackManager.java b/app/src/main/java/com/winlator/core/A06CompatibilityPackManager.java
 new file mode 100644
-index 0000000..f4030fd
+index 0000000..739d9c8
 --- /dev/null
 +++ b/app/src/main/java/com/winlator/core/A06CompatibilityPackManager.java
-@@ -0,0 +1,116 @@
+@@ -0,0 +1,110 @@
 +package com.winlator.core;
 +
 +import android.content.Context;
 +
 +import com.winlator.R;
-+import com.winlator.box64.Box64Preset;
 +import com.winlator.container.Container;
-+import com.winlator.container.DXWrappers;
 +
 +import java.util.ArrayList;
 +
 +/**
 + * Applies small, offline compatibility profiles to an individual container.
-+ * Packs only use components already shipped with the A06 build.
++ * Packs update container settings only; normal startup owns component extraction
++ * and Wine registry setup so profiles cannot leave the prefix half-configured.
 + */
 +public abstract class A06CompatibilityPackManager {
-+    public static final String VERSION = "1";
++    public static final String VERSION = "2";
 +    public static final String PACK_VN_2D = "vn_2d";
 +    public static final String PACK_LIGHT_3D = "light_3d";
 +
@@ -299,26 +303,20 @@ index 0000000..f4030fd
 +        return VERSION.equals(container.getExtra(getMarkerName(packId)));
 +    }
 +
-+    public static boolean install(Context context, Container container, String packId) {
++    public static boolean needsUpdate(Container container, String packId) {
++        String installedVersion = container.getExtra(getMarkerName(packId));
++        return !installedVersion.isEmpty() && !VERSION.equals(installedVersion);
++    }
++
++    public static boolean install(Container container, String packId) {
 +        if (container == null || !isKnownPack(packId)) return false;
 +        if (isInstalled(container, packId)) return true;
-+        if (!A06Preinstall.prepareContainer(context, container)) return false;
-+
-+        String oldWinComponents = container.getWinComponents();
-+        String oldEnvVars = container.getEnvVars();
-+        String oldDXWrapper = container.getDXWrapper();
-+        String oldBox64Preset = container.getBox64Preset();
 +
 +        applySettings(container, packId);
-+        boolean success = A06Preinstall.prepareSelectedWinComponents(context, container);
-+        if (!success) {
-+            container.setWinComponents(oldWinComponents);
-+            container.setEnvVars(oldEnvVars);
-+            container.setDXWrapper(oldDXWrapper);
-+            container.setBox64Preset(oldBox64Preset);
-+            return false;
-+        }
-+
++        // Reapply wrappers and components through the normal startup pipeline.
++        // Extracting archives here bypasses the standard DLL and registry order.
++        container.putExtra("dxwrapper", "");
++        container.putExtra("wincomponents", "");
 +        container.putExtra(getMarkerName(packId), VERSION);
 +        container.saveData();
 +        return true;
@@ -328,24 +326,25 @@ index 0000000..f4030fd
 +        KeyValueSet winComponents = new KeyValueSet(container.getWinComponents());
 +        EnvVars envVars = new EnvVars(container.getEnvVars());
 +
-+        winComponents.put("direct3d", 1)
-+                .put("directsound", 1)
-+                .put("directmusic", 1)
-+                .put("xaudio", 1)
-+                .put("vcrun2010", 1)
-+                .put("wmdecoder", 1);
++        winComponents.put("direct3d", 1);
 +
 +        if (PACK_VN_2D.equals(packId)) {
-+            winComponents.put("directshow", 1).put("vcrun2005", 1);
-+            container.setBox64Preset(Box64Preset.CONSERVATIVE);
++            winComponents.put("directsound", 1)
++                    .put("directmusic", 1)
++                    .put("directshow", 1)
++                    .put("xaudio", 1)
++                    .put("vcrun2005", 1)
++                    .put("vcrun2010", 1)
++                    .put("wmdecoder", 1);
 +        }
 +        else if (PACK_LIGHT_3D.equals(packId)) {
-+            container.setDXWrapper(DXWrappers.DXVK);
-+            container.setBox64Preset(Box64Preset.PERFORMANCE);
-+            envVars.put("MESA_SHADER_CACHE_DISABLE", "false")
-+                    .put("MESA_SHADER_CACHE_MAX_SIZE", "256MB")
-+                    .put("mesa_glthread", "true")
-+                    .put("WINEESYNC", "1");
++            winComponents.put("vcrun2010", 1);
++            if (!envVars.has("MESA_SHADER_CACHE_DISABLE")) {
++                envVars.put("MESA_SHADER_CACHE_DISABLE", "false");
++            }
++            if (!envVars.has("MESA_SHADER_CACHE_MAX_SIZE")) {
++                envVars.put("MESA_SHADER_CACHE_MAX_SIZE", "256MB");
++            }
 +        }
 +
 +        container.setWinComponents(winComponents.toString());
@@ -497,10 +496,10 @@ index bd67ab5..95a21b0 100644
                  android:id="@+id/TabLayout"
                  android:layout_width="match_parent"
 diff --git a/app/src/main/res/values-pt/strings.xml b/app/src/main/res/values-pt/strings.xml
-index e2d342c..be94b66 100644
+index e2d342c..49521b8 100644
 --- a/app/src/main/res/values-pt/strings.xml
 +++ b/app/src/main/res/values-pt/strings.xml
-@@ -12,6 +12,16 @@
+@@ -12,6 +12,17 @@
      <string name="new_container">Novo Container</string>
      <string name="edit_container">Editar Container</string>
      <string name="creating_container">Criando Container...</string>
@@ -508,16 +507,17 @@ index e2d342c..be94b66 100644
 +    <string name="a06_copyright"><![CDATA[Fork A06 e otimizações para celulares fracos por <a href="https://github.com/mauricio-gamedev">Mauricio.dev</a> — Copyright © 2026 Mauricio.dev]]></string>
 +    <string name="a06_compatibility_packs">Packs de compatibilidade A06</string>
 +    <string name="a06_pack_vn_2d">Pack VN / 2D</string>
-+    <string name="a06_pack_vn_2d_description">Visual novels, point-and-click e jogos 2D antigos</string>
++    <string name="a06_pack_vn_2d_description">Dependências para visual novels, point-and-click e jogos 2D antigos</string>
 +    <string name="a06_pack_light_3d">Pack 3D leve</string>
-+    <string name="a06_pack_light_3d_description">DXVK e ajustes para jogos 3D mais leves</string>
++    <string name="a06_pack_light_3d_description">Dependências 3D e cache; preserva o driver e o wrapper escolhidos</string>
 +    <string name="a06_pack_installed">instalado</string>
++    <string name="a06_pack_update_available">atualização disponível</string>
 +    <string name="installing_a06_pack">Instalando pack de compatibilidade...</string>
 +    <string name="unable_to_install_a06_pack">Não foi possível instalar o pack de compatibilidade</string>
      <string name="removing_container">Removendo Container...</string>
      <string name="duplicating_container">Duplicando Container...</string>
      <string name="installing_system_files">Instalando Arquivos do Sistema...</string>
-@@ -299,4 +309,4 @@
+@@ -299,4 +310,4 @@
      <string name="enable_background_wakelock">Ativar wakelock quando o dispositivo está bloqueado</string>
      <string name="save_mem_on_run_from_steam">Economize memória ao executar a partir do Steam</string>
      <string name="present_mode">Modo de Apresentação</string>
@@ -525,10 +525,10 @@ index e2d342c..be94b66 100644
 \ No newline at end of file
 +</resources>
 diff --git a/app/src/main/res/values/strings.xml b/app/src/main/res/values/strings.xml
-index e943712..c0d1c1d 100644
+index e943712..1ec0e42 100644
 --- a/app/src/main/res/values/strings.xml
 +++ b/app/src/main/res/values/strings.xml
-@@ -12,6 +12,16 @@
+@@ -12,6 +12,17 @@
      <string name="new_container">New Container</string>
      <string name="edit_container">Edit Container</string>
      <string name="creating_container">Creating Container...</string>
@@ -536,16 +536,17 @@ index e943712..c0d1c1d 100644
 +    <string name="a06_copyright"><![CDATA[A06 fork and low-end optimizations by <a href="https://github.com/mauricio-gamedev">Mauricio.dev</a> — Copyright © 2026 Mauricio.dev]]></string>
 +    <string name="a06_compatibility_packs">A06 Compatibility Packs</string>
 +    <string name="a06_pack_vn_2d">VN / 2D pack</string>
-+    <string name="a06_pack_vn_2d_description">Visual novels, point-and-click and older 2D games</string>
++    <string name="a06_pack_vn_2d_description">Dependencies for visual novels, point-and-click and older 2D games</string>
 +    <string name="a06_pack_light_3d">Light 3D pack</string>
-+    <string name="a06_pack_light_3d_description">DXVK and low-end tuning for lighter 3D games</string>
++    <string name="a06_pack_light_3d_description">3D dependencies and shader cache; keeps your selected driver and wrapper</string>
 +    <string name="a06_pack_installed">installed</string>
++    <string name="a06_pack_update_available">update available</string>
 +    <string name="installing_a06_pack">Installing compatibility pack...</string>
 +    <string name="unable_to_install_a06_pack">Unable to install compatibility pack</string>
      <string name="removing_container">Removing Container...</string>
      <string name="duplicating_container">Duplicating Container...</string>
      <string name="installing_system_files">Installing System Files...</string>
-@@ -358,4 +368,4 @@
+@@ -358,4 +369,4 @@
      <string name="fgs_notification_content_else">Winlator is running in the background</string>
      <string name="save_mem_on_run_from_steam">Save memory on run from Steam</string>
      <string name="present_mode">Present Mode</string>
