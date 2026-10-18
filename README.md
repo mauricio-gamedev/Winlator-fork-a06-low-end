@@ -2,31 +2,36 @@
 
 Fork experimental do Winlator para celulares Android modestos, começando pelo Galaxy A06 4G (Helio G85, 4 GB de RAM).
 
-## Status
+## Status atual
 
-A build atual é um APK debug para testes no aparelho. A primeira release experimental com os packs está disponível em [v0.2.0-a06-packs](https://github.com/mauricio-gamedev/Winlator-fork-a06-low-end/releases/tag/v0.2.0-a06-packs).
+A release de teste mais recente é [v0.2.1-a06-driver-fix](https://github.com/mauricio-gamedev/Winlator-fork-a06-low-end/releases/tag/v0.2.1-a06-driver-fix). Ela inclui uma correção na preparação dos drivers gráficos para investigar a tela preta no teste Direct3D (cubo).
 
-Ela já inclui:
+O APK compilou com sucesso no GitHub Actions. A correção ainda precisa ser confirmada no Galaxy A06; por enquanto, não há resultado novo do teste no aparelho.
 
-- resolução padrão de 960x544 e cache de shaders limitado a 256 MB;
-- preparação automática do ambiente A06 com Vortek, Gladio, Box64, DXVK, D8VK e VKD3D;
-- componentes WinComponents selecionados por container;
-- packs opcionais de compatibilidade VN/2D e 3D leve;
-- interface em português do Brasil e crédito da fork na tela Sobre.
+A release anterior, [v0.2.0-a06-packs](https://github.com/mauricio-gamedev/Winlator-fork-a06-low-end/releases/tag/v0.2.0-a06-packs), continua disponível.
 
-A compatibilidade ainda está sendo medida com jogos e programas reais. O pack recomendado depende do software escolhido.
+## O que a fork inclui
 
-## Como testar
+- Resolução padrão de 960x544 e cache de shaders limitado a 256 MB.
+- Preparação do ambiente A06 com Vortek, Gladio, Box64, DXVK, D8VK e VKD3D.
+- Componentes WinComponents selecionáveis por container.
+- Packs opcionais VN/2D e 3D leve.
+- Interface em português do Brasil e crédito da fork na tela Sobre.
+- Preparação ordenada dos arquivos de drivers gráficos do rootfs, com atualização de versão para refazer arquivos antigos.
+
+Compatibilidade depende do jogo ou programa, das dependências, do caminho gráfico e do driver ativo no aparelho. Os packs são pontos de partida, não garantias.
+
+## Como testar a v0.2.1
 
 1. Baixe o APK em [Releases](https://github.com/mauricio-gamedev/Winlator-fork-a06-low-end/releases).
-2. Crie ou abra um container e entre em **Packs de compatibilidade A06**.
-3. Use o pack **VN / 2D** para visual novels, point-and-click e jogos 2D antigos.
-4. Use o pack **3D leve** para jogos 3D que usam DXVK.
-5. Registre o jogo, resolução, pack usado, FPS aproximado e qualquer erro de áudio ou vídeo.
+2. Faça backup dos containers antes de instalar uma build de teste.
+3. No Galaxy A06 4G, abra o container e repita o teste Direct3D (cubo) com as mesmas configurações usadas antes.
+4. Registre o driver gráfico, o pack ativo e se o cubo renderiza.
+5. Se o teste passar, experimente primeiro uma visual novel ou jogo 2D; depois, um jogo 3D leve.
 
-## Build sem PC
+## Builds
 
-O workflow [Build debug APK](https://github.com/mauricio-gamedev/Winlator-fork-a06-low-end/actions/workflows/build-debug.yml) baixa a base upstream, instala Java/Android SDK/CMake/NDK, aplica o patch A06 e publica o APK como artefato. A release é publicada pelo workflow específico depois de uma compilação limpa.
+O workflow [Build debug APK](https://github.com/mauricio-gamedev/Winlator-fork-a06-low-end/actions/workflows/build-debug.yml) compila a base upstream com o patch A06 e salva o APK como artefato do Actions. Commits de release com o marcador configurado no workflow também publicam APK e notas em Releases.
 
 ## Base e créditos
 
@@ -36,4 +41,4 @@ As modificações específicas da fork são mantidas por **Mauricio.dev / mauric
 
 ## Limites
 
-Esta é uma build experimental. Compatibilidade depende do programa, das dependências, do caminho gráfico e do driver disponível no aparelho. Nenhum pack garante que todos os jogos funcionarão.
+Esta é uma build experimental. O Galaxy A06 4G é o aparelho-alvo atual; suporte a outros celulares e compatibilidade universal não foram confirmados.
